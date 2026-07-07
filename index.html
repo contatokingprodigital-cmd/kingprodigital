@@ -44,19 +44,6 @@
 
     <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
 
-
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    
-    <style>
-        h1, h2, h3, .font-title { font-family: 'Montserrat', sans-serif; }
-        .gold-gradient { background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .gold-bg { background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728); }
-        .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-    </style>
     <script type="importmap">
 {
   "imports": {
@@ -71,7 +58,18 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-BuMxdiiq.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet" crossorigin="anonymous">
+    
+    <style>
+        h1, h2, h3, .font-title { font-family: 'Montserrat', sans-serif; }
+        .gold-gradient { background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .gold-bg { background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728); }
+        .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
 </head>
 <body>
     <div id="initial-loader">
@@ -81,5 +79,6 @@
     
     <div id="root"></div>
 
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>
