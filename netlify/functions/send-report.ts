@@ -19,7 +19,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const data = JSON.parse(event.body || '{}');
-
+    
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
 
@@ -56,7 +56,6 @@ export const handler: Handler = async (event, context) => {
     const captacaoScore = [data.acqSocial, data.acqAds, data.acqGoogle, data.acqWhatsapp, data.acqLandingPage].filter(Boolean).length * 4;
     const comercialScore = [data.fastResponse, data.hasScript, data.hasFollowUp, data.hasCrm, data.hasAutomation].filter(Boolean).length * 3;
     const anunciosScore = [data.metaAds, data.googleAds, data.remarketing, data.pixelSetup, data.creativeScale].filter(Boolean).length * 3;
-
     const totalScore = presencaScore + autoridadeScore + captacaoScore + comercialScore + anunciosScore;
 
     const htmlContent = `
@@ -87,6 +86,7 @@ export const handler: Handler = async (event, context) => {
           <li><strong>Média de Clientes:</strong> ${data.monthlyClients || 0}</li>
           <li><strong>Ticket Médio:</strong> R$ ${data.ticketAverage || 0}</li>
         </ul>
+
         <p style="margin-top: 30px; font-size: 12px; color: #666;">Este é um e-mail automático enviado pelo sistema de diagnóstico da King Pro Digital.</p>
       </div>
     `;
@@ -99,7 +99,7 @@ export const handler: Handler = async (event, context) => {
         : data.pdfBase64;
         
       attachments.push({
-        filename: \`Diagnostico_KingProDigital_\${data.companyName?.replace(/[^a-z0-9]/gi, '_') || 'Empresa'}.pdf\`,
+        filename: `Diagnostico_KingProDigital_${data.companyName?.replace(/[^a-z0-9]/gi, '_') || 'Empresa'}.pdf`,
         content: base64Data,
         encoding: 'base64'
       });
@@ -109,7 +109,7 @@ export const handler: Handler = async (event, context) => {
     await transporter.sendMail({
       from: '"King Pro Digital" <contatokingprodigital@gmail.com>',
       to: adminEmail,
-      subject: \`Novo Diagnóstico: \${data.companyName || 'Empresa'}\`,
+      subject: `Novo Diagnóstico: ${data.companyName || 'Empresa'}`,
       html: htmlContent,
       attachments
     });
@@ -118,7 +118,7 @@ export const handler: Handler = async (event, context) => {
     await transporter.sendMail({
       from: '"King Pro Digital" <contatokingprodigital@gmail.com>',
       to: clientEmail,
-      subject: \`Seu Diagnóstico Estratégico - King Pro Digital\`,
+      subject: `Seu Diagnóstico Estratégico - King Pro Digital`,
       html: htmlContent,
       attachments
     });

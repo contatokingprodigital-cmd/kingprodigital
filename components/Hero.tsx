@@ -7,7 +7,7 @@ const Hero: React.FC = () => {
 
   const renderTitle = () => {
     if (!content?.heroTitle) return null;
-    if (content.heroTitle === "MAIS CLIENTES MAIS VENDAS. TRÁFEGO PAGO COM ESTRATÉGIA.") {
+    if (content.heroTitle === "MAIS CLIENTES MAIS VENDAS. COM AS ESTRATÉGIAS CERTAS.") {
       return (
         <>
           <span className="text-white block md:inline uppercase font-extrabold tracking-tighter">
@@ -15,7 +15,7 @@ const Hero: React.FC = () => {
           </span>
           <br className="hidden md:block" />
           <span className="gold-gradient block md:inline uppercase font-extrabold tracking-tighter">
-            TRÁFEGO PAGO COM ESTRATÉGIA.
+            COM AS ESTRATÉGIAS CERTAS.
           </span>
         </>
       );
