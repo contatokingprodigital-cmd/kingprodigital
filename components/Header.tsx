@@ -25,7 +25,7 @@ const Header: React.FC = () => {
     { name: 'Serviços', href: '/#servicos' },
     { name: 'Bastidores', href: '/#instagram' },
     { name: 'Resultados', href: '/#feedback' },
-    { name: 'Diagnóstico', href: '/diagnostico' },
+    { name: 'Agendar Reunião', href: 'https://calendly.com/kingprodigital/reuniao-alinhamento' },
   ];
 
   return (
