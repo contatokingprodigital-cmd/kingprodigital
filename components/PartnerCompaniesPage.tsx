@@ -16,6 +16,8 @@ import {
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -349,6 +351,40 @@ const PartnerCompaniesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result?.user) return;
+        const signedUser = result.user;
+        if (
+          !signedUser.email ||
+          !signedUser.emailVerified ||
+          signedUser.email.toLowerCase() !== ADMIN_EMAIL
+        ) {
+          await signOut(auth);
+          setAuthError(`Acesso restrito exclusivamente à conta Google ${ADMIN_EMAIL}.`);
+          return;
+        }
+        setUser(signedUser);
+        setFeedbackBanner({
+          type: 'success',
+          message: 'Sessão administrativa ativa. Você já pode cadastrar e gerenciar empresas.',
+        });
+      })
+      .catch((err: unknown) => {
+        const code =
+          typeof err === 'object' && err !== null && 'code' in err
+            ? String((err as { code: unknown }).code)
+            : '';
+        if (code === 'auth/unauthorized-domain') {
+          const host = typeof window !== 'undefined' ? window.location.hostname : 'seu domínio';
+          setAuthError(
+            `O domínio "${host}" precisa estar autorizado no Firebase Authentication (Configurações → Domínios autorizados).`
+          );
+        } else if (code) {
+          setAuthError(`Erro ao concluir login Google (${code}).`);
+        }
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (
         currentUser &&
@@ -447,14 +483,77 @@ const PartnerCompaniesPage: React.FC = () => {
         message: 'Sessão administrativa ativa. Você já pode cadastrar e gerenciar empresas.',
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao autenticar com o Google.';
-      if (!message.includes('popup-closed-by-user')) {
-        setAuthError('Não foi possível entrar com sua conta Google. Tente novamente.');
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code: unknown }).code)
+          : '';
+      const message = err instanceof Error ? err.message : '';
+      console.error('Google login error:', code, message);
+
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        message.includes('popup-closed-by-user')
+      ) {
+        setAuthError(
+          'A janela de login do Google foi fechada antes de concluir. Se você estiver usando bloqueador de anúncios/pop-up ou visualizando dentro de um painel, abra o site em uma nova aba ou use "Entrar na mesma aba" abaixo.'
+        );
+        return;
       }
+
+      if (code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain')) {
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'seu domínio';
+        setAuthError(
+          `O domínio "${host}" não está autorizado no Firebase Authentication (Configurações → Domínios autorizados) do projeto gen-lang-client-0724157826.`
+        );
+        return;
+      }
+
+      if (code === 'auth/popup-blocked' || message.includes('popup-blocked')) {
+        setAuthError(
+          'O navegador bloqueou a janela de login do Google. Libere os pop-ups para este site ou clique em "Entrar na mesma aba" abaixo.'
+        );
+        return;
+      }
+
+      setAuthError(
+        `Não foi possível entrar com sua conta Google${code ? ` (${code})` : ''}. Tente novamente.`
+      );
     } finally {
       setAuthLoading(false);
     }
   };
+
+  const handleGoogleRedirectLogin = async () => {
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      await signInWithRedirect(auth, googleProvider);
+    } catch (err: unknown) {
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code: unknown }).code)
+          : '';
+      setAuthError(
+        `Não foi possível iniciar o login por redirecionamento${code ? ` (${code})` : ''}.`
+      );
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'k') {
+        if (isOwner) {
+          openCreateModal();
+        } else {
+          handleGoogleLogin();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOwner]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -721,17 +820,29 @@ const PartnerCompaniesPage: React.FC = () => {
         {authError && (
           <div
             role="alert"
-            className="mb-8 p-4 rounded-xl border bg-red-500/10 border-red-500/30 text-red-300 flex items-center justify-between gap-4 text-sm"
+            className="mb-8 p-4 rounded-xl border bg-red-500/10 border-red-500/30 text-red-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm"
           >
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{authError}</span>
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p>{authError}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGoogleRedirectLogin}
+                    disabled={authLoading}
+                    className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                  >
+                    Entrar na mesma aba (sem pop-up)
+                  </button>
+                </div>
+              </div>
             </div>
             <button
               type="button"
               onClick={() => setAuthError(null)}
               aria-label="Fechar erro"
-              className="text-current opacity-70 hover:opacity-100 p-1"
+              className="text-current opacity-70 hover:opacity-100 p-1 self-end sm:self-center"
             >
               <X className="w-4 h-4" />
             </button>
