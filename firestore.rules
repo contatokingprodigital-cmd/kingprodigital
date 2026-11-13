@@ -70,7 +70,7 @@ service cloud.firestore {
 
     match /partner_companies/{companyId} {
       allow get: if isValidId(companyId);
-      allow list: if resource.data.name is string;
+      allow list: if true;
 
       allow create: if isOwnerAdmin()
         && isValidId(companyId)

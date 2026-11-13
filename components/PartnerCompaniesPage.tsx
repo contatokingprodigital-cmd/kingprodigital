@@ -119,7 +119,7 @@ async function compressImageToDataUrl(file: File): Promise<string> {
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const maxSide = 420;
+        const maxSide = 640;
         const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
         const width = Math.max(1, Math.round(img.width * scale));
         const height = Math.max(1, Math.round(img.height * scale));
@@ -222,7 +222,7 @@ const CompanyCard: React.FC<{
 
       <div>
         <div
-          className={`h-36 w-full rounded-xl flex items-center justify-center p-5 mb-5 border transition-colors ${
+          className={`h-52 md:h-56 w-full rounded-xl flex items-center justify-center p-3 mb-5 border transition-colors overflow-hidden ${
             company.logoBg === 'light'
               ? 'bg-white border-white/20'
               : 'bg-black/70 border-white/10'
@@ -235,7 +235,7 @@ const CompanyCard: React.FC<{
               referrerPolicy="no-referrer"
               loading="lazy"
               onError={() => setImgError(true)}
-              className="max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+              className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-[1.03]"
             />
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -317,6 +317,7 @@ const PartnerCompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<PartnerCompany[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Firebase Auth state
@@ -437,7 +438,8 @@ const PartnerCompaniesPage: React.FC = () => {
       },
       (error) => {
         setLoading(false);
-        setFetchError('Não foi possível carregar as empresas parceiras.');
+        const detail = error instanceof Error ? error.message : String(error);
+        setFetchError(`Não foi possível carregar as empresas parceiras (${detail}).`);
         try {
           handleFirestoreError(error, OperationType.LIST, 'partner_companies');
         } catch {
@@ -447,7 +449,7 @@ const PartnerCompaniesPage: React.FC = () => {
     );
 
     return () => unsubscribe();
-  }, [authReady]);
+  }, [authReady, user?.uid, retryCount]);
 
   const filteredCompanies = useMemo(() => {
     const queryText = searchTerm.trim().toLowerCase();
@@ -880,11 +882,20 @@ const PartnerCompaniesPage: React.FC = () => {
 
         {/* Fetch Error */}
         {fetchError && (
-          <div className="mb-8 p-5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold mb-1">{fetchError}</p>
+          <div className="mb-8 p-5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">{fetchError}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setRetryCount((c) => c + 1)}
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors whitespace-nowrap self-start sm:self-center"
+            >
+              Tentar novamente
+            </button>
           </div>
         )}
 
@@ -896,7 +907,7 @@ const PartnerCompaniesPage: React.FC = () => {
                 key={item}
                 className="bg-zinc-950 border border-white/10 rounded-2xl p-6 animate-pulse"
               >
-                <div className="h-36 bg-white/5 rounded-xl mb-5" />
+                <div className="h-52 md:h-56 bg-white/5 rounded-xl mb-5" />
                 <div className="h-6 bg-white/10 rounded w-2/3 mb-3" />
                 <div className="h-4 bg-white/5 rounded w-1/2 mb-6" />
                 <div className="flex gap-2.5 pt-4 border-t border-white/5">
