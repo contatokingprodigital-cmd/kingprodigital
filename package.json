@@ -10,10 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@netlify/functions": "^5.3.0",
+    "@supabase/supabase-js": "^2.119.0",
     "dom-to-image-more": "^3.10.0",
     "dotenv": "^17.4.2",
+    "eslint": "^10.14.0",
     "express": "^5.2.1",
+    "firebase": "^13.3.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.23.0",

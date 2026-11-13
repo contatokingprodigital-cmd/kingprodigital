@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "PartnerCompany": {
+      "title": "PartnerCompany",
+      "description": "Public business directory entry for a King Pro Digital partner company, writable only by the authorized administrator.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the partner company",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "segment": {
+          "type": "string",
+          "description": "Optional business segment or city",
+          "maxLength": 120
+        },
+        "logoUrl": {
+          "type": "string",
+          "description": "URL or compressed data URI for the company logo",
+          "minLength": 1,
+          "maxLength": 500000
+        },
+        "logoBg": {
+          "type": "string",
+          "description": "Preferred card background behind the logo for contrast",
+          "enum": ["dark", "light"]
+        },
+        "whatsappUrl": {
+          "type": "string",
+          "description": "Optional normalized WhatsApp link",
+          "maxLength": 500
+        },
+        "instagramUrl": {
+          "type": "string",
+          "description": "Optional normalized Instagram profile link",
+          "maxLength": 500
+        },
+        "addressUrl": {
+          "type": "string",
+          "description": "Optional Google Maps or address link",
+          "maxLength": 1000
+        },
+        "addressLabel": {
+          "type": "string",
+          "description": "Optional short street address displayed on card",
+          "maxLength": 180
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the administrator who created the record",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update"
+        }
+      },
+      "required": ["name", "logoUrl", "logoBg", "ownerId", "createdAt", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Trusted administrator lookup document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/partner_companies/{companyId}": {
+      "schema": { "$ref": "#/entities/PartnerCompany" },
+      "description": "Collection of partner companies displayed on /empresasparceiras."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Trusted admin UID registry."
+    }
+  }
+}

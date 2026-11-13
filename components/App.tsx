@@ -15,6 +15,7 @@ import PixelInjector from './PixelInjector';
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import DiagnosticApp from './diagnostic/DiagnosticApp';
+import PartnerCompaniesPage from './PartnerCompaniesPage';
 
 const SEOUpdater: React.FC = () => {
   const { content } = useSite();
@@ -75,6 +76,7 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<MainLandingPage />} />
               <Route path="/diagnostico" element={<DiagnosticApp />} />
+              <Route path="/empresasparceiras" element={<PartnerCompaniesPage />} />
             </Routes>
           </div>
           <Footer />

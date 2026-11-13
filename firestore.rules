@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerAdmin() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && (
+          request.auth.token.email == 'contatokingprodigital@gmail.com'
+          || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        );
+    }
+
+    function isValidOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isValidPartnerCompany(data) {
+      return data.keys().hasAll(['name', 'logoUrl', 'logoBg', 'ownerId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'name',
+          'segment',
+          'logoUrl',
+          'logoBg',
+          'whatsappUrl',
+          'instagramUrl',
+          'addressUrl',
+          'addressLabel',
+          'ownerId',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && isValidOptionalString(data, 'segment', 120)
+        && data.logoUrl is string && data.logoUrl.size() >= 1 && data.logoUrl.size() <= 500000
+        && data.logoBg is string && data.logoBg in ['dark', 'light']
+        && isValidOptionalString(data, 'whatsappUrl', 500)
+        && isValidOptionalString(data, 'instagramUrl', 500)
+        && isValidOptionalString(data, 'addressUrl', 1000)
+        && isValidOptionalString(data, 'addressLabel', 180)
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+
+    match /partner_companies/{companyId} {
+      allow get: if isValidId(companyId);
+      allow list: if resource.data.name is string;
+
+      allow create: if isOwnerAdmin()
+        && isValidId(companyId)
+        && isValidPartnerCompany(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isOwnerAdmin()
+        && isValidId(companyId)
+        && isValidPartnerCompany(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'segment',
+          'logoUrl',
+          'logoBg',
+          'whatsappUrl',
+          'instagramUrl',
+          'addressUrl',
+          'addressLabel',
+          'updatedAt'
+        ]);
+
+      allow delete: if isOwnerAdmin() && isValidId(companyId);
+    }
+
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+      allow list, write: if false;
+    }
+  }
+}
