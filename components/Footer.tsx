@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
             &copy; {new Date().getFullYear()} King Pro Digital Agency. Todos os direitos reservados.
           </p>
           <div className="mt-4 flex justify-center gap-6 text-[9px] text-gray-700 uppercase tracking-widest">
-            <Link to="/empresasparceiras" className="hover:text-amber-500 transition-colors">Empresas Parceiras</Link>
+            <Link to="/empresasparceiras" className="hover:text-amber-500 transition-colors">Anúncios</Link>
             <Link to="/diagnostico" className="hover:text-amber-500 transition-colors">Diagnóstico</Link>
             <a href="#" className="hover:text-amber-500 transition-colors">Privacidade</a>
             <a href="#" className="hover:text-amber-500 transition-colors">Termos</a>

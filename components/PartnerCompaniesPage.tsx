@@ -12,6 +12,7 @@ import {
   X,
   Check,
   AlertCircle,
+  MousePointerClick,
 } from 'lucide-react';
 import {
   onAuthStateChanged,
@@ -30,6 +31,8 @@ import {
   onSnapshot,
   orderBy,
   query,
+  where,
+  increment,
   serverTimestamp,
 } from 'firebase/firestore';
 import {
@@ -40,6 +43,7 @@ import {
   OperationType,
   handleFirestoreError,
   PartnerCompany,
+  PartnerCompanyStats,
   PARTNER_LIMITS,
   normalizeWhatsappUrl,
   normalizeInstagramUrl,
@@ -119,29 +123,65 @@ async function compressImageToDataUrl(file: File): Promise<string> {
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const maxSide = 640;
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-        const width = Math.max(1, Math.round(img.width * scale));
-        const height = Math.max(1, Math.round(img.height * scale));
+        const tempMax = 1200;
+        const tempScale = Math.min(1, tempMax / Math.max(img.width, img.height));
+        const tempW = Math.max(1, Math.round(img.width * tempScale));
+        const tempH = Math.max(1, Math.round(img.height * tempScale));
+
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = tempW;
+        srcCanvas.height = tempH;
+        const srcCtx = srcCanvas.getContext('2d');
+        if (!srcCtx) {
+          reject(new Error('Não foi possível processar a imagem.'));
+          return;
+        }
+        srcCtx.clearRect(0, 0, tempW, tempH);
+        srcCtx.drawImage(img, 0, 0, tempW, tempH);
+
+        // Remove margens transparentes extras para o logotipo preencher melhor o card
+        const { data } = srcCtx.getImageData(0, 0, tempW, tempH);
+        let minX = tempW, minY = tempH, maxX = -1, maxY = -1;
+        for (let y = 0; y < tempH; y++) {
+          for (let x = 0; x < tempW; x++) {
+            const alpha = data[(y * tempW + x) * 4 + 3];
+            if (alpha > 12) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        const cropX = maxX >= minX ? minX : 0;
+        const cropY = maxY >= minY ? minY : 0;
+        const cropW = maxX >= minX ? maxX - minX + 1 : tempW;
+        const cropH = maxY >= minY ? maxY - minY + 1 : tempH;
+
+        const maxSide = 960;
+        const outScale = Math.min(1, maxSide / Math.max(cropW, cropH));
+        const outW = Math.max(1, Math.round(cropW * outScale));
+        const outH = Math.max(1, Math.round(cropH * outScale));
 
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = outW;
+        canvas.height = outH;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new Error('Não foi possível processar a imagem.'));
           return;
         }
-        ctx.clearRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.clearRect(0, 0, outW, outH);
+        ctx.drawImage(srcCanvas, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
 
-        const webpUrl = canvas.toDataURL('image/webp', 0.84);
+        const webpUrl = canvas.toDataURL('image/webp', 0.88);
         if (webpUrl.length <= 450000) {
           resolve(webpUrl);
           return;
         }
 
-        const fallbackUrl = canvas.toDataURL('image/webp', 0.6);
+        const fallbackUrl = canvas.toDataURL('image/webp', 0.65);
         if (fallbackUrl.length > 480000) {
           reject(new Error('A imagem excede o limite permitido mesmo após compressão.'));
           return;
@@ -158,17 +198,24 @@ async function compressImageToDataUrl(file: File): Promise<string> {
 
 const CompanyCard: React.FC<{
   company: PartnerCompany;
+  stats?: PartnerCompanyStats;
   isOwner: boolean;
   onEdit: (company: PartnerCompany) => void;
   onDelete: (id: string) => void;
+  onTrackClick: (companyId: string, channel: 'whatsapp' | 'instagram' | 'address') => void;
   deletingId: string | null;
-}> = ({ company, isOwner, onEdit, onDelete, deletingId }) => {
+}> = ({ company, stats, isOwner, onEdit, onDelete, onTrackClick, deletingId }) => {
   const [imgError, setImgError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const hasWhatsapp = Boolean(company.whatsappUrl);
   const hasInstagram = Boolean(company.instagramUrl);
   const hasAddress = Boolean(company.addressUrl);
+
+  const whatsappClicks = stats?.whatsappClicks ?? 0;
+  const instagramClicks = stats?.instagramClicks ?? 0;
+  const addressClicks = stats?.addressClicks ?? 0;
+  const totalClicks = whatsappClicks + instagramClicks + addressClicks;
 
   return (
     <article className="group relative flex flex-col justify-between bg-zinc-950/90 border border-white/10 hover:border-amber-500/40 rounded-2xl p-6 transition-all duration-200">
@@ -222,7 +269,7 @@ const CompanyCard: React.FC<{
 
       <div>
         <div
-          className={`h-52 md:h-56 w-full rounded-xl flex items-center justify-center p-3 mb-5 border transition-colors overflow-hidden ${
+          className={`w-full rounded-xl flex items-center justify-center mb-5 border transition-colors overflow-hidden ${
             company.logoBg === 'light'
               ? 'bg-white border-white/20'
               : 'bg-black/70 border-white/10'
@@ -235,10 +282,10 @@ const CompanyCard: React.FC<{
               referrerPolicy="no-referrer"
               loading="lazy"
               onError={() => setImgError(true)}
-              className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+              className="w-full h-auto max-h-[380px] object-contain block transition-transform duration-200 group-hover:scale-[1.02]"
             />
           ) : (
-            <div className="flex flex-col items-center justify-center gap-2 text-center">
+            <div className="h-44 w-full flex flex-col items-center justify-center gap-2 text-center p-4">
               <Building2
                 className={`w-9 h-9 ${
                   company.logoBg === 'light' ? 'text-zinc-400' : 'text-amber-500/70'
@@ -266,12 +313,44 @@ const CompanyCard: React.FC<{
         )}
       </div>
 
+      {isOwner && (
+        <div className="mb-3 pt-3 border-t border-white/10 text-xs">
+          <div className="flex items-center justify-between text-gray-400 mb-2">
+            <span className="inline-flex items-center gap-1.5 font-medium text-gray-300">
+              <MousePointerClick className="w-3.5 h-3.5 text-amber-500" />
+              Cliques nos links
+            </span>
+            <span className="font-semibold text-amber-400 tabular-nums">
+              {totalClicks} {totalClicks === 1 ? 'clique' : 'cliques'}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-400 tabular-nums">
+            {hasWhatsapp && (
+              <span>
+                WhatsApp: <strong className="text-[#25D366]">{whatsappClicks}</strong>
+              </span>
+            )}
+            {hasInstagram && (
+              <span>
+                Instagram: <strong className="text-white">{instagramClicks}</strong>
+              </span>
+            )}
+            {hasAddress && (
+              <span>
+                Endereço: <strong className="text-amber-400">{addressClicks}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="pt-4 mt-2 border-t border-white/10 flex flex-wrap gap-2.5">
         {hasWhatsapp && (
           <a
             href={company.whatsappUrl || '#'}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => onTrackClick(company.id, 'whatsapp')}
             className="flex-1 min-w-[110px] min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366] hover:text-black transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]"
           >
             <WhatsAppIcon className="w-4 h-4 shrink-0" />
@@ -284,6 +363,7 @@ const CompanyCard: React.FC<{
             href={company.instagramUrl || '#'}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => onTrackClick(company.id, 'instagram')}
             className="flex-1 min-w-[110px] min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-white/5 text-white border border-white/15 hover:bg-white hover:text-black transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <InstagramIcon className="w-4 h-4 shrink-0" />
@@ -296,6 +376,7 @@ const CompanyCard: React.FC<{
             href={company.addressUrl || '#'}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => onTrackClick(company.id, 'address')}
             className="flex-1 min-w-[110px] min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-black transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
             <MapPin className="w-4 h-4 shrink-0" />
@@ -315,6 +396,7 @@ const CompanyCard: React.FC<{
 
 const PartnerCompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<PartnerCompany[]>([]);
+  const [statsByCompany, setStatsByCompany] = useState<Record<string, PartnerCompanyStats>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
@@ -450,6 +532,100 @@ const PartnerCompaniesPage: React.FC = () => {
 
     return () => unsubscribe();
   }, [authReady, user?.uid, retryCount]);
+
+  useEffect(() => {
+    if (!authReady || !isOwner) {
+      setStatsByCompany({});
+      return;
+    }
+
+    const statsQuery = query(
+      collection(db, 'partner_company_stats'),
+      where('whatsappClicks', '>=', 0)
+    );
+
+    const unsubscribe = onSnapshot(
+      statsQuery,
+      (snapshot) => {
+        const nextStats: Record<string, PartnerCompanyStats> = {};
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          nextStats[docSnap.id] = {
+            whatsappClicks: Number(data.whatsappClicks || 0),
+            instagramClicks: Number(data.instagramClicks || 0),
+            addressClicks: Number(data.addressClicks || 0),
+          };
+        });
+        setStatsByCompany(nextStats);
+      },
+      (error) => {
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'partner_company_stats');
+        } catch {
+          // Error logged by handleFirestoreError
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [authReady, isOwner]);
+
+  const handleTrackClick = async (
+    companyId: string,
+    channel: 'whatsapp' | 'instagram' | 'address'
+  ) => {
+    const fieldMap = {
+      whatsapp: 'whatsappClicks',
+      instagram: 'instagramClicks',
+      address: 'addressClicks',
+    } as const;
+    const field = fieldMap[channel];
+    const statsRef = doc(db, 'partner_company_stats', companyId);
+
+    try {
+      await updateDoc(statsRef, {
+        [field]: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err: unknown) {
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code: unknown }).code)
+          : '';
+      const message = err instanceof Error ? err.message : '';
+
+      if (code === 'not-found' || message.includes('No document to update')) {
+        try {
+          await setDoc(statsRef, {
+            whatsappClicks: channel === 'whatsapp' ? 1 : 0,
+            instagramClicks: channel === 'instagram' ? 1 : 0,
+            addressClicks: channel === 'address' ? 1 : 0,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (createErr) {
+          try {
+            handleFirestoreError(
+              createErr,
+              OperationType.CREATE,
+              `partner_company_stats/${companyId}`
+            );
+          } catch {
+            // Avoid interrupting user navigation if stats write fails
+          }
+        }
+      } else {
+        try {
+          handleFirestoreError(
+            err,
+            OperationType.UPDATE,
+            `partner_company_stats/${companyId}`
+          );
+        } catch {
+          // Avoid interrupting user navigation if stats write fails
+        }
+      }
+    }
+  };
 
   const filteredCompanies = useMemo(() => {
     const queryText = searchTerm.trim().toLowerCase();
@@ -720,6 +896,7 @@ const PartnerCompaniesPage: React.FC = () => {
       const docRef = doc(db, 'partner_companies', id);
       try {
         await deleteDoc(docRef);
+        await deleteDoc(doc(db, 'partner_company_stats', id)).catch(() => {});
       } catch (err) {
         handleFirestoreError(err, OperationType.DELETE, `partner_companies/${id}`);
       }
@@ -747,23 +924,17 @@ const PartnerCompaniesPage: React.FC = () => {
 
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Page Header */}
-        <header className="max-w-3xl mb-12">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-500 mb-4">
-            Rede de Parceiros King Pro Digital
-          </p>
+        <header className="max-w-4xl mb-12">
           <h1
-            className="font-title font-extrabold tracking-tight text-white mb-5"
+            className="font-title font-extrabold tracking-tight text-white uppercase"
             style={{
-              fontSize: 'clamp(2.25rem, 4vw, 3.5rem)',
-              lineHeight: 1.08,
+              fontSize: 'clamp(2rem, 3.8vw, 3.25rem)',
+              lineHeight: 1.1,
               textWrap: 'balance',
             }}
           >
-            Empresas <span className="gold-gradient">Parceiras</span>
+            Empresas do Bairro <span className="gold-gradient">Jardim Algarve</span>
           </h1>
-          <p className="text-base md:text-lg text-gray-400 leading-relaxed max-w-2xl">
-            Conheça os negócios que aceleram seus resultados com a King Pro Digital. Fale diretamente pelo WhatsApp, acompanhe no Instagram ou acesse a localização de cada parceiro.
-          </p>
         </header>
 
         {/* Toolbar: Search + Owner Controls */}
@@ -907,7 +1078,7 @@ const PartnerCompaniesPage: React.FC = () => {
                 key={item}
                 className="bg-zinc-950 border border-white/10 rounded-2xl p-6 animate-pulse"
               >
-                <div className="h-52 md:h-56 bg-white/5 rounded-xl mb-5" />
+                <div className="h-44 bg-white/5 rounded-xl mb-5" />
                 <div className="h-6 bg-white/10 rounded w-2/3 mb-3" />
                 <div className="h-4 bg-white/5 rounded w-1/2 mb-6" />
                 <div className="flex gap-2.5 pt-4 border-t border-white/5">
@@ -957,9 +1128,11 @@ const PartnerCompaniesPage: React.FC = () => {
               <CompanyCard
                 key={company.id}
                 company={company}
+                stats={statsByCompany[company.id]}
                 isOwner={isOwner}
                 onEdit={openEditModal}
                 onDelete={handleDeleteCompany}
+                onTrackClick={handleTrackClick}
                 deletingId={deletingId}
               />
             ))}
@@ -1069,7 +1242,7 @@ const PartnerCompaniesPage: React.FC = () => {
 
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                   <div
-                    className={`w-full sm:w-36 h-24 rounded-xl flex items-center justify-center p-3 border shrink-0 ${
+                    className={`w-full sm:w-40 rounded-xl flex items-center justify-center border shrink-0 overflow-hidden ${
                       formState.logoBg === 'light'
                         ? 'bg-white border-white/20'
                         : 'bg-zinc-950 border-white/10'
@@ -1080,14 +1253,16 @@ const PartnerCompaniesPage: React.FC = () => {
                         src={formState.logoUrl}
                         alt="Pré-visualização do logotipo"
                         referrerPolicy="no-referrer"
-                        className="max-h-full max-w-full object-contain"
+                        className="w-full h-auto max-h-32 object-contain block"
                       />
                     ) : (
-                      <Building2
-                        className={`w-7 h-7 ${
-                          formState.logoBg === 'light' ? 'text-zinc-400' : 'text-gray-600'
-                        }`}
-                      />
+                      <div className="h-24 w-full flex items-center justify-center">
+                        <Building2
+                          className={`w-7 h-7 ${
+                            formState.logoBg === 'light' ? 'text-zinc-400' : 'text-gray-600'
+                          }`}
+                        />
+                      </div>
                     )}
                   </div>
 

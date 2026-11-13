@@ -63,6 +63,28 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidPartnerStats(data) {
+      return data.keys().hasAll(['whatsappClicks', 'instagramClicks', 'addressClicks', 'updatedAt'])
+        && data.keys().hasOnly(['whatsappClicks', 'instagramClicks', 'addressClicks', 'updatedAt'])
+        && data.whatsappClicks is int && data.whatsappClicks >= 0
+        && data.instagramClicks is int && data.instagramClicks >= 0
+        && data.addressClicks is int && data.addressClicks >= 0
+        && data.updatedAt is timestamp;
+    }
+
+    function isSingleClickIncrement() {
+      return (
+        incoming().diff(existing()).affectedKeys().hasOnly(['whatsappClicks', 'updatedAt'])
+        && incoming().whatsappClicks == existing().whatsappClicks + 1
+      ) || (
+        incoming().diff(existing()).affectedKeys().hasOnly(['instagramClicks', 'updatedAt'])
+        && incoming().instagramClicks == existing().instagramClicks + 1
+      ) || (
+        incoming().diff(existing()).affectedKeys().hasOnly(['addressClicks', 'updatedAt'])
+        && incoming().addressClicks == existing().addressClicks + 1
+      );
+    }
+
     match /admins/{adminId} {
       allow get: if isSignedIn() && isValidId(adminId) && request.auth.uid == adminId;
       allow list, create, update, delete: if false;
@@ -96,6 +118,27 @@ service cloud.firestore {
           'addressLabel',
           'updatedAt'
         ]);
+
+      allow delete: if isOwnerAdmin() && isValidId(companyId);
+    }
+
+    match /partner_company_stats/{companyId} {
+      allow get: if isOwnerAdmin() && isValidId(companyId);
+      allow list: if isOwnerAdmin() && resource.data.whatsappClicks is int;
+
+      allow create: if isValidId(companyId)
+        && isValidPartnerStats(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().whatsappClicks <= 1
+        && incoming().instagramClicks <= 1
+        && incoming().addressClicks <= 1
+        && (incoming().whatsappClicks + incoming().instagramClicks + incoming().addressClicks) == 1
+        && exists(/databases/$(database)/documents/partner_companies/$(companyId));
+
+      allow update: if isValidId(companyId)
+        && isValidPartnerStats(incoming())
+        && incoming().updatedAt == request.time
+        && (isOwnerAdmin() || isSingleClickIncrement());
 
       allow delete: if isOwnerAdmin() && isValidId(companyId);
     }

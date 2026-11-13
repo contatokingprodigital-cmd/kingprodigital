@@ -91,6 +91,12 @@ export interface PartnerCompany {
   updatedAt?: unknown;
 }
 
+export interface PartnerCompanyStats {
+  whatsappClicks: number;
+  instagramClicks: number;
+  addressClicks: number;
+}
+
 export const PARTNER_LIMITS = {
   NAME_MAX: 120,
   SEGMENT_MAX: 120,

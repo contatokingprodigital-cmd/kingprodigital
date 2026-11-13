@@ -13,22 +13,26 @@ import AdminDashboard from './AdminDashboard';
 import { SiteProvider, useSite } from '../SiteContext';
 import PixelInjector from './PixelInjector';
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import DiagnosticApp from './diagnostic/DiagnosticApp';
 import PartnerCompaniesPage from './PartnerCompaniesPage';
 
 const SEOUpdater: React.FC = () => {
   const { content } = useSite();
+  const { pathname } = useLocation();
   
   useEffect(() => {
-    if (content.seoTitle) {
+    const normalizedPath = pathname.toLowerCase();
+    if (normalizedPath.startsWith('/empresasparceiras') || normalizedPath.startsWith('/anuncios')) {
+      document.title = 'Anúncios';
+    } else if (content.seoTitle) {
       document.title = content.seoTitle;
     }
     if (content.seoDescription) {
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) metaDesc.setAttribute('content', content.seoDescription);
     }
-  }, [content.seoTitle, content.seoDescription]);
+  }, [content.seoTitle, content.seoDescription, pathname]);
 
   return null;
 };
@@ -68,8 +72,8 @@ const App: React.FC = () => {
   return (
     <SiteProvider>
       <PixelInjector />
-      <SEOUpdater />
       <Router>
+        <SEOUpdater />
         <div className="min-h-[100dvh] flex flex-col bg-black text-white selection:bg-amber-500 selection:text-black">
           <Header />
           <div className="flex-1">
@@ -78,6 +82,8 @@ const App: React.FC = () => {
               <Route path="/diagnostico" element={<DiagnosticApp />} />
               <Route path="/empresasparceiras" element={<PartnerCompaniesPage />} />
               <Route path="/empresasparceiras/*" element={<PartnerCompaniesPage />} />
+              <Route path="/anuncios" element={<PartnerCompaniesPage />} />
+              <Route path="/anuncios/*" element={<PartnerCompaniesPage />} />
             </Routes>
           </div>
           <Footer />

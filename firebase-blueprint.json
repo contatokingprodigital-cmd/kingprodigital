@@ -67,6 +67,31 @@
       },
       "required": ["name", "logoUrl", "logoBg", "ownerId", "createdAt", "updatedAt"]
     },
+    "PartnerCompanyStats": {
+      "title": "PartnerCompanyStats",
+      "description": "Per-link click counters for each partner company, readable only by the authorized administrator.",
+      "type": "object",
+      "properties": {
+        "whatsappClicks": {
+          "type": "integer",
+          "description": "Total clicks on the WhatsApp button"
+        },
+        "instagramClicks": {
+          "type": "integer",
+          "description": "Total clicks on the Instagram button"
+        },
+        "addressClicks": {
+          "type": "integer",
+          "description": "Total clicks on the Address button"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last recorded click"
+        }
+      },
+      "required": ["whatsappClicks", "instagramClicks", "addressClicks", "updatedAt"]
+    },
     "AdminUser": {
       "title": "AdminUser",
       "description": "Trusted administrator lookup document keyed by Firebase Auth UID.",
@@ -84,7 +109,11 @@
   "firestore": {
     "/partner_companies/{companyId}": {
       "schema": { "$ref": "#/entities/PartnerCompany" },
-      "description": "Collection of partner companies displayed on /empresasparceiras."
+      "description": "Collection of partner companies displayed on /empresasparceiras and /anuncios."
+    },
+    "/partner_company_stats/{companyId}": {
+      "schema": { "$ref": "#/entities/PartnerCompanyStats" },
+      "description": "Click counters per link for each partner company, readable only by the admin."
     },
     "/admins/{adminId}": {
       "schema": { "$ref": "#/entities/AdminUser" },
